@@ -128,8 +128,9 @@ for tier = 1: numberOfTiers
                 end
                 rind = strfind(r, '"');
                 numberOfQuotationMarks = sum(r == '"');
+
                 if mod(numberOfQuotationMarks, 2) ~= 1 % remove whitespace at the end of line, it is only in the case of even number of quotation marks
-                    if sppasFormat ~= true
+                    if ~sppasFormat && ~isempty(r) && isspace(r(end))
                         r = r(rind(1): end-1);
                     else
                         r = r(rind(1): end);
@@ -138,18 +139,30 @@ for tier = 1: numberOfTiers
                     r = r(rind(1): end);
                 end
             end
+
             numberOfQuotationMarks = sum(r == '"');
             label = r(2:end);
+
             if mod(numberOfQuotationMarks, 2) == 1
                 label = [label sprintf('\n')];
                 while 1
                     r = fgetl(fid);
+
+                    % EOF/IO guard to avoid infinite loop on unterminated quotes
+                    if ~ischar(r) || isequal(r, -1)
+                        warning('Reached EOF while reading a multi-line label without a closing quote.');
+                        break
+                    end
+
                     numberOfQuotationMarks = sum(r == '"');
-                    if ~shortFormat && mod(numberOfQuotationMarks, 2) == 1 && ~sppasFormat % remove whitespace at the end of line, it is only in the case of odd number of quotation marks
+                    
+                    % Only strip if last char is actually whitespace
+                    if ~shortFormat && mod(numberOfQuotationMarks, 2) == 1 && ~sppasFormat ...
+                            && ~isempty(r) && isspace(r(end)) % remove whitespace at the end of line, it is only in the case of odd number of quotation marks
                         r = r(1: end-1);
                     end
                     
-                    if mod(numberOfQuotationMarks, 2) == 1 && r(end) == '"'
+                    if ~isempty(r) && mod(numberOfQuotationMarks, 2) == 1 && r(end) == '"'
                         label = [label r(1:end-1) '"'];
                         break
                     else
@@ -158,6 +171,7 @@ for tier = 1: numberOfTiers
                     
                 end
             end
+
             label = label(1: end-1);
             if isempty(label)
                 label = '';   % unification: '' and Empty string: 1-by-0  
